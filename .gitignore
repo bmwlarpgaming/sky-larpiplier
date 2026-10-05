@@ -1,0 +1,9 @@
+node_modules/
+.build/
+.DS_Store
+# Tests stay local
+test/
+*.log
+.env
+# skystream-cli has a local file: dependency that breaks lockfiles and npm ci
+package-lock.json

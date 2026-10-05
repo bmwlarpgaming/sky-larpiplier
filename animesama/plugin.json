@@ -1,0 +1,20 @@
+{
+  "packageName": "com.larpstream.skystream.animesama",
+  "name": "Anime-Sama",
+  "version": 2,
+  "baseUrl": "https://anime-sama.to",
+  "description": "Animes en VOSTFR et VF d'Anime-Sama",
+  "authors": [
+    "larpstream"
+  ],
+  "languages": [
+    "fr"
+  ],
+  "categories": [
+    "Anime"
+  ],
+  "iconUrl": "https://www.google.com/s2/favicons?domain=anime-sama.to&sz=128",
+  "domains": [
+    { "name": "anime-sama.to", "url": "https://anime-sama.to" }
+  ]
+}

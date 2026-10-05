@@ -1,0 +1,14 @@
+{
+  "name": "sky-larpiplier",
+  "version": "1.0.0",
+  "description": "Plugins SkyStream : Voiranime et Anime-Sama (VF et VOSTFR)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/",
+    "deploy": "skystream deploy -u https://raw.githubusercontent.com/bmwlarpgaming/sky-larpiplier/main/"
+  },
+  "devDependencies": {
+    "skystream-cli": "^1.9.3"
+  }
+}
