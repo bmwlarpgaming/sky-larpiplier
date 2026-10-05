@@ -1,0 +1,50 @@
+[
+  {
+    "packageName": "com.larpstream.skystream.animesama",
+    "name": "Anime-Sama",
+    "version": 2,
+    "baseUrl": "https://anime-sama.to",
+    "description": "Animes en VOSTFR et VF d'Anime-Sama",
+    "authors": [
+      "larpstream"
+    ],
+    "languages": [
+      "fr"
+    ],
+    "categories": [
+      "Anime"
+    ],
+    "iconUrl": "https://www.google.com/s2/favicons?domain=anime-sama.to&sz=128",
+    "domains": [
+      {
+        "name": "anime-sama.to",
+        "url": "https://anime-sama.to"
+      }
+    ],
+    "url": "https://raw.githubusercontent.com/bmwlarpgaming/sky-larpiplier/main/dist/com.larpstream.skystream.animesama.sky"
+  },
+  {
+    "packageName": "com.larpstream.skystream.voiranime",
+    "name": "Voiranime",
+    "version": 2,
+    "baseUrl": "https://voir-anime.to",
+    "description": "Animes en VF et VOSTFR de Voiranime",
+    "authors": [
+      "larpstream"
+    ],
+    "languages": [
+      "fr"
+    ],
+    "categories": [
+      "Anime"
+    ],
+    "iconUrl": "https://www.google.com/s2/favicons?domain=voir-anime.to&sz=128",
+    "domains": [
+      {
+        "name": "voir-anime.to",
+        "url": "https://voir-anime.to"
+      }
+    ],
+    "url": "https://raw.githubusercontent.com/bmwlarpgaming/sky-larpiplier/main/dist/com.larpstream.skystream.voiranime.sky"
+  }
+]
