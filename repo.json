@@ -1,7 +1,7 @@
 {
   "name": "sky-larpiplier",
   "packageName": "com.larpstream.skystream",
-  "description": "Plugins SkyStream : Voiranime et Anime-Sama (VF et VOSTFR)",
+  "description": "Plugins SkyStream : Voiranime, Anime-Sama (VF et VOSTFR) et WhoInvitedBro",
   "manifestVersion": 1,
   "pluginLists": [
     "https://raw.githubusercontent.com/bmwlarpgaming/sky-larpiplier/main/dist/plugins.json"

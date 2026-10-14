@@ -1,0 +1,18 @@
+{
+  "packageName": "com.larpstream.skystream.whoinvitedbro",
+  "name": "WhoInvitedBro",
+  "version": 1,
+  "baseUrl": "https://aiometadata.elfhosted.com",
+  "description": "Movies, TV shows and anime with streams from many sources and subtitles, in the spirit of StreamPlay. Nothing to configure.",
+  "authors": [
+    "larpstream"
+  ],
+  "languages": [
+    "en"
+  ],
+  "categories": [
+    "Movie",
+    "TV",
+    "Anime"
+  ]
+}
