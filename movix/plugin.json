@@ -1,0 +1,21 @@
+{
+  "packageName": "com.larpstream.skystream.movix",
+  "name": "Movix",
+  "version": 1,
+  "baseUrl": "https://movix.zip",
+  "description": "Films et séries en VF et VOSTFR de Movix",
+  "authors": [
+    "larpstream"
+  ],
+  "languages": [
+    "fr"
+  ],
+  "categories": [
+    "Movie",
+    "TV"
+  ],
+  "iconUrl": "https://www.google.com/s2/favicons?domain=movix.zip&sz=128",
+  "domains": [
+    { "name": "movix.zip", "url": "https://movix.zip" }
+  ]
+}

@@ -1,6 +1,7 @@
 // Pure HTML/JS parsing for anime-sama: no DOM, no network, testable with node.
 
 import { unpackPacker, withUnpacked } from "../../shared/packer.js";
+import { base64Decode, voeSources } from "../../shared/hosts.js";
 
 export const LANGUAGES = [
     { path: "vostfr", label: "VOSTFR", dubStatus: "subbed" },
@@ -364,55 +365,6 @@ export function isUnsupportedPlayer(url) {
     return /(^|\.)embed4me\.com$/.test(hostOf(url));
 }
 
-const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-/** Base64 to a binary string; does not rely on the runtime having atob. */
-export function base64Decode(input) {
-    const clean = String(input || "").replace(/[^A-Za-z0-9+/]/g, "");
-    let out = "";
-    let buffer = 0;
-    let bits = 0;
-    for (const ch of clean) {
-        buffer = (buffer << 6) | B64.indexOf(ch);
-        bits += 6;
-        if (bits >= 8) {
-            bits -= 8;
-            out += String.fromCharCode((buffer >> bits) & 0xff);
-        }
-    }
-    return out;
-}
-
-function rot13(value) {
-    return value.replace(/[a-z]/gi, c => {
-        const base = c <= "Z" ? 65 : 97;
-        return String.fromCharCode((c.charCodeAt(0) - base + 13) % 26 + base);
-    });
-}
-
-/**
- * Voe hides its sources in a JSON string: rot13, junk markers, base64,
- * every character shifted by 3, reversed, then base64 again.
- */
-export function voeSources(html) {
-    const script = /<script type="application\/json"[^>]*>([\s\S]*?)<\/script>/i.exec(html || "");
-    if (!script) return null;
-    try {
-        const parsed = JSON.parse(script[1].trim());
-        let s = rot13(Array.isArray(parsed) ? String(parsed[0]) : String(parsed));
-        for (const junk of ["@$", "^^", "~@", "%?", "*~", "!!", "#&"]) s = s.split(junk).join("");
-        s = base64Decode(s);
-        s = Array.from(s, c => String.fromCharCode(c.charCodeAt(0) - 3)).reverse().join("");
-        const data = JSON.parse(base64Decode(s));
-        const out = [];
-        if (data.source) out.push(data.source);
-        if (data.direct_access_url) out.push(data.direct_access_url);
-        return out.length ? out : null;
-    } catch (_) {
-        return null;
-    }
-}
-
 /**
  * VidHide pages list several playlists. "hls4" (relative to the player's domain) is last:
  * its segments are disguised as images, which AVPlayer rejects.
@@ -506,4 +458,4 @@ export function anilistResults(body, count) {
     return out;
 }
 
-export { unpackPacker, withUnpacked };
+export { unpackPacker, withUnpacked, base64Decode, voeSources };
