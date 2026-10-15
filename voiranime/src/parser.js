@@ -2,6 +2,7 @@
 // No DOM: the SkyStream JS engine only offers a limited HTML API, and the site
 // markup is regular enough for targeted regular expressions.
 
+import { unpackPacker } from "../../shared/packer.js";
 export const CATEGORIES = [
     { path: "/", label: "Derniers épisodes" },
     { path: "/?filter=dubbed", label: "Derniers épisodes VF" },
@@ -360,31 +361,6 @@ export function sources(html) {
     return out;
 }
 
-const PACKER_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-/** Decodes Dean Edwards' P.A.C.K.E.R. obfuscation (`eval(function(p,a,c,k,e,d)...`). */
-export function unpackPacker(source) {
-    const match = /\}\s*\(\s*'([\s\S]*?)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'([\s\S]*?)'\.split\('\|'\)/.exec(source || "");
-    if (!match) return null;
-    const payload = match[1].replace(/\\'/g, "'").replace(/\\\\/g, "\\");
-    const radix = parseInt(match[2], 10);
-    const words = match[4].split("|");
-    const decode = word => {
-        if (radix <= 36) return parseInt(word, radix);
-        let n = 0;
-        for (const ch of word) {
-            const v = PACKER_ALPHABET.indexOf(ch);
-            if (v < 0) return NaN;
-            n = n * radix + v;
-        }
-        return n;
-    };
-    return payload.replace(/\b\w+\b/g, word => {
-        const index = decode(word);
-        return Number.isFinite(index) && index < words.length && words[index] ? words[index] : word;
-    });
-}
-
 /** Direct media URLs found in a player page, including inside packed scripts. */
 export function extractMediaUrls(html) {
     const page = html || "";
@@ -512,3 +488,5 @@ export function cookieValue(setCookie, name) {
     }
     return null;
 }
+
+export { unpackPacker };

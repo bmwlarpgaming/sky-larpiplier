@@ -1,5 +1,7 @@
 // Pure HTML/JS parsing for anime-sama: no DOM, no network, testable with node.
 
+import { unpackPacker, withUnpacked } from "../../shared/packer.js";
+
 export const LANGUAGES = [
     { path: "vostfr", label: "VOSTFR", dubStatus: "subbed" },
     { path: "vf", label: "VF", dubStatus: "dubbed" }
@@ -362,41 +364,6 @@ export function isUnsupportedPlayer(url) {
     return /(^|\.)embed4me\.com$/.test(hostOf(url));
 }
 
-const PACKER_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-export function unpackPacker(source) {
-    const match = /\}\s*\(\s*'([\s\S]*?)'\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*'([\s\S]*?)'\.split\('\|'\)/.exec(source || "");
-    if (!match) return null;
-    const payload = match[1].replace(/\\'/g, "'").replace(/\\\\/g, "\\");
-    const radix = parseInt(match[2], 10);
-    const words = match[4].split("|");
-    const decode = word => {
-        if (radix <= 36) return parseInt(word, radix);
-        let n = 0;
-        for (const ch of word) {
-            const v = PACKER_ALPHABET.indexOf(ch);
-            if (v < 0) return NaN;
-            n = n * radix + v;
-        }
-        return n;
-    };
-    return payload.replace(/\b\w+\b/g, word => {
-        const index = decode(word);
-        return Number.isFinite(index) && index < words.length && words[index] ? words[index] : word;
-    });
-}
-
-/** The page followed by every packed script it contains, unpacked. */
-export function withUnpacked(html) {
-    const page = html || "";
-    const parts = [page];
-    for (const m of page.matchAll(/eval\(function\(p,a,c,k,e,[dr]\)[\s\S]*?\.split\('\|'\)[^)]*\)\)?/g)) {
-        const unpacked = unpackPacker(m[0]);
-        if (unpacked) parts.push(unpacked);
-    }
-    return parts.join("\n");
-}
-
 const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /** Base64 to a binary string; does not rely on the runtime having atob. */
@@ -538,3 +505,5 @@ export function anilistResults(body, count) {
     }
     return out;
 }
+
+export { unpackPacker, withUnpacked };
