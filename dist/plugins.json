@@ -24,6 +24,60 @@
     "url": "https://raw.githubusercontent.com/bmwlarpgaming/sky-larpiplier/main/dist/com.larpstream.skystream.animesama.sky"
   },
   {
+    "packageName": "com.larpstream.skystream.frenchstream",
+    "name": "French-Stream",
+    "version": 1,
+    "baseUrl": "https://french-stream.net",
+    "description": "Films et séries en VF, VFQ et VOSTFR de French-Stream",
+    "authors": [
+      "larpstream"
+    ],
+    "languages": [
+      "fr"
+    ],
+    "categories": [
+      "Movie",
+      "TV"
+    ],
+    "iconUrl": "https://www.google.com/s2/favicons?domain=french-stream.net&sz=128",
+    "domains": [
+      {
+        "name": "french-stream.net",
+        "url": "https://french-stream.net"
+      },
+      {
+        "name": "french-stream.one",
+        "url": "https://french-stream.one"
+      }
+    ],
+    "url": "https://raw.githubusercontent.com/bmwlarpgaming/sky-larpiplier/main/dist/com.larpstream.skystream.frenchstream.sky"
+  },
+  {
+    "packageName": "com.larpstream.skystream.movix",
+    "name": "Movix",
+    "version": 1,
+    "baseUrl": "https://movix.zip",
+    "description": "Films et séries en VF et VOSTFR de Movix",
+    "authors": [
+      "larpstream"
+    ],
+    "languages": [
+      "fr"
+    ],
+    "categories": [
+      "Movie",
+      "TV"
+    ],
+    "iconUrl": "https://www.google.com/s2/favicons?domain=movix.zip&sz=128",
+    "domains": [
+      {
+        "name": "movix.zip",
+        "url": "https://movix.zip"
+      }
+    ],
+    "url": "https://raw.githubusercontent.com/bmwlarpgaming/sky-larpiplier/main/dist/com.larpstream.skystream.movix.sky"
+  },
+  {
     "packageName": "com.larpstream.skystream.voiranime",
     "name": "Voiranime",
     "version": 2,
