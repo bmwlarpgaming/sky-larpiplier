@@ -2,7 +2,7 @@
   {
     "packageName": "com.larpstream.skystream.animesama",
     "name": "Anime-Sama",
-    "version": 2,
+    "version": 3,
     "baseUrl": "https://anime-sama.to",
     "description": "Animes en VOSTFR et VF d'Anime-Sama",
     "authors": [
