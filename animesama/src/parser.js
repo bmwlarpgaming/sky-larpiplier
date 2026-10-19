@@ -74,6 +74,12 @@ function firstInner(html, openTag, closeTag) {
     return match ? match[1] : "";
 }
 
+/** Value of the first `name="..."` attribute in `html`, entities decoded. */
+function attr(html, name) {
+    const match = new RegExp("\\s" + name + "=\"([^\"]*)\"", "i").exec(html);
+    return match ? decodeEntities(match[1]) : "";
+}
+
 function allInner(html, openTag, closeTag) {
     return [...html.matchAll(new RegExp(openTag + "([\\s\\S]*?)" + closeTag, "gi"))].map(m => m[1]);
 }
@@ -108,52 +114,50 @@ export function isWatchable(types) {
 
 // ----------------------------------------------------------------- cards
 
-/** Catalogue cards: catalogue pages, search and most home rows. */
-export function catalogCards(html, base) {
-    const out = [];
-    for (const block of blocks(html || "", /<div class="[^"]*\bcatalog-card\b[^"]*">/g)) {
-        const href = /<a[^>]+href="([^"]+)"/i.exec(block);
-        const slug = href ? slugOf(href[1]) : "";
-        if (!slug) continue;
-        const img = /<img[^>]+src="([^"]+)"/i.exec(block);
-        const typesRow = /Types[\s\S]*?<p class="info-value">([^<]*)<\/p>/i.exec(block);
-        const types = typesRow ? decodeEntities(typesRow[1]).split(",").map(s => s.trim()).filter(Boolean) : [];
-        out.push({
-            slug,
-            url: seriesUrl(base, slug),
-            title: textOf(firstInner(block, "<h2[^>]*card-title[^>]*>", "</h2>")),
-            altTitles: splitTitles(textOf(firstInner(block, "<p[^>]*alternate-titles[^>]*>", "</p>"))),
-            thumb: img ? resolveUrl(base + "/", img[1]) : "",
-            genres: allInner(block, "<span[^>]*genre-tag[^>]*>", "</span>").map(textOf).filter(Boolean),
-            types
-        });
-    }
-    return out;
+/** Start of a card: every listing of the site (catalogue, search, home rows) uses the same one. */
+const CARD = /<div class="as-carte(?:\s[^"]*)?"[^>]*>/g;
+
+function siteCard(block, base) {
+    const href = /<a[^>]+href="([^"]+)"/i.exec(block);
+    const slug = slugOf(attr(block, "data-url") || (href ? href[1] : ""));
+    if (!slug) return null;
+    const img = /<img[^>]+src="([^"]+)"/i.exec(block);
+    return {
+        slug,
+        href: href ? href[1] : "",
+        url: seriesUrl(base, slug),
+        title: textOf(firstInner(block, "<h3[^>]*as-carte-titre[^>]*>", "</h3>")) || attr(block, "data-nom"),
+        altTitles: [],
+        thumb: img ? resolveUrl(base + "/", img[1]) : "",
+        genres: [],
+        types: allInner(block, "<span[^>]*as-badge[^>]*>", "</span>").map(textOf).filter(Boolean)
+    };
 }
 
-/** Episode cards of the "latest episodes" and planning rows. */
+function siteCards(html, base) {
+    return blocks(html || "", CARD).map(block => [block, siteCard(block, base)]).filter(([, card]) => card);
+}
+
+/** Catalogue cards: catalogue pages, search and most home rows. */
+export function catalogCards(html, base) {
+    return siteCards(html, base).map(([, card]) => {
+        delete card.href;
+        return card;
+    });
+}
+
+/** Episode cards of the "latest episodes" and planning rows: the card links to a season and language. */
 export function episodeCards(html, base) {
-    const out = [];
-    for (const block of blocks(html || "", /<div class="[^"]*\banime-card-premium\b[^"]*">/g)) {
-        const href = /<a[^>]+href="([^"]+)"/i.exec(block);
-        const slug = href ? slugOf(href[1]) : "";
-        if (!slug) continue;
-        const img = /<img[^>]+class="[^"]*card-image[^"]*"[^>]*src="([^"]+)"|<img[^>]+src="([^"]+)"[^>]*class="[^"]*card-image/i.exec(block);
-        const flag = /<img[^>]+class="flag-icon"[^>]*alt="([^"]*)"|<img[^>]+alt="([^"]*)"[^>]*title="(?:VF|VOSTFR|VA|VCN|VKR|VJ|VQC|VAR)"/i.exec(block);
-        const badge = textOf(firstInner(block, "<span class=\"badge-text\">", "</span>"));
-        out.push({
-            slug,
-            url: seriesUrl(base, slug),
-            title: textOf(firstInner(block, "<h2[^>]*card-title[^>]*>", "</h2>")),
-            altTitles: [],
-            thumb: img ? resolveUrl(base + "/", img[1] || img[2]) : "",
-            genres: [],
-            types: badge ? [badge] : [],
-            language: flag ? (flag[1] || flag[2] || "") : "",
-            info: textOf(firstInner(block, "<div class=\"info-item episode\">", "</div>"))
+    return siteCards(html, base).map(([block, card]) => {
+        const path = /\/catalogue\/[^/]+\/[^/]+\/([a-z0-9]+)\/?$/i.exec(card.href);
+        const flag = /<span class="as-drapeau"><img[^>]+alt="([^"]*)"/i.exec(block);
+        const info = /<div class="as-carte-info">[\s\S]*?<span>([\s\S]*?)<\/span>/i.exec(block);
+        delete card.href;
+        return Object.assign(card, {
+            language: path ? path[1].toUpperCase() : (flag ? decodeEntities(flag[1]) : ""),
+            info: info ? textOf(info[1]) : ""
         });
-    }
-    return out;
+    });
 }
 
 /** Slides of the home carousel, without the clones added for the infinite loop. */
@@ -274,8 +278,7 @@ export function seasonLabel(name) {
 }
 
 function infoValue(html, label) {
-    const match = new RegExp("<span class=\"info-lbl\">(?:<svg[\\s\\S]*?</svg>)?\\s*" + label +
-        "\\s*</span>\\s*<span class=\"info-val[^\"]*\">([^<]*)</span>", "i").exec(html);
+    const match = new RegExp("<dt>\\s*(?:" + label + ")\\s*</dt>\\s*<dd>([^<]*)</dd>", "i").exec(html);
     return match ? decodeEntities(match[1]).trim() : "";
 }
 
@@ -284,18 +287,17 @@ export function detail(html, url) {
     const title = textOf(firstInner(page, "<h1[^>]*>", "</h1>"));
     if (!title) return null;
     const thumb = /src="([^"]*\/contenu\/thumb\/[^"]+)"/i.exec(page);
-    const trailer = /id="bandeannonce"[^>]*src="([^"]+)"/i.exec(page);
-    const youtube = trailer ? /youtube\.com\/embed\/([\w-]+)/.exec(trailer[1]) : null;
-    const status = normalize(infoValue(page, "[ÉE]tat"));
-    const year = parseInt(infoValue(page, "Ann[ée]e"), 10);
-    const genresBlock = firstInner(page, "<div class=\"genres-wrap\">", "</div>");
+    const youtube = /data-youtube="([\w-]+)"/i.exec(page);
+    // The first facts list is the anime's; a second one describes the original manga.
+    const status = normalize(infoValue(page, "Statut"));
+    const year = parseInt((/\b(?:19|20)\d{2}\b/.exec(infoValue(page, "Diffusion|D[ée]but")) || [])[0], 10);
     return {
         slug: slugOf(url),
         url,
         title,
-        altTitles: splitTitles(textOf(firstInner(page, "<h2 id=\"titreAlter\"[^>]*>", "</h2>"))),
+        altTitles: splitTitles(textOf(firstInner(page, "<p id=\"titreAlter\"[^>]*>", "</p>"))),
         synopsis: textOf(firstInner(page, "<p id=\"synopsisText\"[^>]*>", "</p>")),
-        genres: allInner(genresBlock, "<span class=\"genre-pill\">", "</span>").map(textOf).filter(Boolean),
+        genres: [...page.matchAll(/<a[^>]*class="genre-pill"[^>]*>([\s\S]*?)<\/a>/gi)].map(m => textOf(m[1])).filter(Boolean),
         thumb: thumb ? thumb[1] : "",
         trailerUrl: youtube ? "https://www.youtube.com/watch?v=" + youtube[1] : "",
         ongoing: status === "en cours" ? true : (status === "termine" ? false : null),
