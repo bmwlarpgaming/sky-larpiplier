@@ -19,6 +19,11 @@ import {
     episodeUrl,
     parseEpisodeUrl,
     episodesJsUrl,
+    seasonPageUrl,
+    seasonPlayers,
+    linkId,
+    linkApiUrl,
+    fixPlayerUrl,
     playerName,
     isUnsupportedPlayer,
     withUnpacked,
@@ -35,6 +40,7 @@ import {
     anilistQuery,
     anilistResults
 } from "./src/parser.js";
+import { scriptRedirect } from "../shared/hosts.js";
 
 (function() {
     const SEARCH_PAGES = 3;
@@ -257,12 +263,35 @@ import {
 
     // ---------------------------------------------------------------- load
 
+    /** Players of a season: `{ lists, token, meta }`, from its page, else from its old episodes.js. */
     async function playerLists(slug, folder, language) {
         try {
-            return episodeLists(await getPage(episodesJsUrl(baseUrl(), slug, folder, language)));
+            const players = seasonPlayers(await getPage(seasonPageUrl(baseUrl(), slug, folder, language)));
+            if (players.lists.length) return players;
         } catch (_) {
-            return [];
+            // No such season in this language: its page is a 404.
+            return { lists: [], token: "", meta: {} };
         }
+        try {
+            return { lists: episodeLists(await getPage(episodesJsUrl(baseUrl(), slug, folder, language))), token: "", meta: {} };
+        } catch (_) {
+            return { lists: [], token: "", meta: {} };
+        }
+    }
+
+    /** The embed address of a link: itself, or what /api/lien.php answers for a "lien:<id>" reference. */
+    async function resolveLink(link, token) {
+        const id = linkId(link);
+        if (!id) return link;
+        if (!token) return null;
+        const res = await http_get(linkApiUrl(baseUrl(), token, id), siteHeaders());
+        let answer = null;
+        try {
+            answer = JSON.parse(res.body || "");
+        } catch (_) {
+            answer = null;
+        }
+        return answer && /^https?:\/\//i.test(answer.u || "") ? fixPlayerUrl(answer.u) : null;
     }
 
     async function load(url, cb) {
@@ -285,7 +314,7 @@ import {
 
             const episodes = [];
             jobs.forEach((job, j) => {
-                const count = episodeCount(lists[j] || []);
+                const count = episodeCount((lists[j] || {}).lists || []);
                 const isFilm = /^film/i.test(job.season.folder);
                 for (let index = 0; index < count; index++) {
                     const number = job.season.firstEpisode + index;
@@ -378,8 +407,15 @@ import {
 
     async function loadPlayer(link, language) {
         if (isUnsupportedPlayer(link)) return [];
-        const res = await http_get(link, siteHeaders());
+        let res = await http_get(link, siteHeaders());
         if (statusOf(res) !== 200) return [];
+        // Voe's mirrors may first send a "Redirecting..." page to another mirror.
+        const next = (res.body || "").length < 4000 && scriptRedirect(res.body);
+        if (next) {
+            res = await http_get(next, siteHeaders());
+            if (statusOf(res) !== 200) return [];
+            if (!res.finalUrl && !res.url) res.url = next;
+        }
         const html = res.body || "";
 
         if (/sibnet\.ru/i.test(link)) {
@@ -410,13 +446,14 @@ import {
         try {
             const ref = parseEpisodeUrl(url);
             if (!ref) return cb({ success: false, errorCode: "NOT_FOUND", message: "Épisode introuvable" });
-            const lists = await playerLists(ref.slug, ref.folder, ref.language);
-            const links = episodeLinks(lists, ref.index);
+            const players = await playerLists(ref.slug, ref.folder, ref.language);
+            const links = episodeLinks(players.lists, ref.index, players.meta);
             if (!links.length) return cb({ success: false, errorCode: "NOT_FOUND", message: "Aucun lecteur pour cet épisode" });
             const language = (LANGUAGES.find(l => l.path === ref.language) || { label: ref.language.toUpperCase() }).label;
-            const found = await Promise.all(links.map(link =>
-                withTimeout(loadPlayer(link, language), SOURCE_TIMEOUT_MS, [])
-            ));
+            const found = await Promise.all(links.map(link => withTimeout(
+                resolveLink(link, players.token).then(embed => embed ? loadPlayer(embed, language) : []),
+                SOURCE_TIMEOUT_MS, []
+            )));
             const seen = new Set();
             const data = [];
             for (const item of [].concat(...found)) {

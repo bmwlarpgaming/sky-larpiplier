@@ -55,6 +55,21 @@ export function origin(url) {
     return match ? match[1] : "";
 }
 
+/** `value` (absolute, root-relative or relative) against the address of the page it is in. */
+export function resolveUrl(base, value) {
+    const v = String(value || "").trim();
+    if (isHttp(v)) return v;
+    if (v.startsWith("//")) return (/^(https?:)/i.exec(base) || ["", "https:"])[1] + v;
+    if (v.startsWith("/")) return origin(base) + v;
+    return String(base).replace(/[?#].*$/, "").replace(/[^/]*$/, "") + v;
+}
+
+/** The first address (a variant or a segment) listed by an HLS playlist, absolute. */
+export function firstPlaylistEntry(playlist, base) {
+    const line = String(playlist || "").split(/\r?\n/).map(l => l.trim()).find(l => l && !l.startsWith("#"));
+    return line ? resolveUrl(base, line) : null;
+}
+
 export function isHttp(url) {
     return /^https?:\/\//i.test(String(url || ""));
 }
@@ -67,7 +82,7 @@ export function simplify(value) {
 const LANGUAGES = {
     en: "English", eng: "English", fr: "French", fre: "French", fra: "French", es: "Spanish", spa: "Spanish",
     spn: "Spanish", de: "German", ger: "German", deu: "German", it: "Italian", ita: "Italian", pt: "Portuguese",
-    por: "Portuguese", pob: "Portuguese (Brazil)", "pt-br": "Portuguese (Brazil)", ru: "Russian", rus: "Russian",
+    por: "Portuguese", pob: "Portuguese (Brazil)", spl: "Spanish (Latin America)", ru: "Russian", rus: "Russian",
     ar: "Arabic", ara: "Arabic", tr: "Turkish", tur: "Turkish", ja: "Japanese", jpn: "Japanese", ko: "Korean",
     kor: "Korean", zh: "Chinese", chi: "Chinese", zho: "Chinese", nl: "Dutch", dut: "Dutch", nld: "Dutch",
     pl: "Polish", pol: "Polish", sv: "Swedish", swe: "Swedish", no: "Norwegian", nor: "Norwegian", da: "Danish",
@@ -79,10 +94,30 @@ const LANGUAGES = {
     hrv: "Croatian", ms: "Malay", may: "Malay", msa: "Malay"
 };
 
-/** "eng", "en", "English" -> "English". */
+/** Other spellings of the regional variants, as sources write them. */
+const LANGUAGE_ALIASES = {
+    "pt-br": "pob", "pt_br": "pob", "portuguese-br": "pob", "portuguese (brazil)": "pob", "brazilian": "pob",
+    "es-419": "spl", "es-la": "spl", "es-mx": "spl", "spanish-latam": "spl", "spanish (latin america)": "spl", "latino": "spl"
+};
+
+/** BCP 47 codes of the regional variants; the others use their two-letter key. */
+const REGIONAL_CODES = { "Portuguese (Brazil)": "pt-BR", "Spanish (Latin America)": "es-419" };
+
+/** "eng", "en", "English", "portuguese-br" -> "English", "Portuguese (Brazil)". */
 export function languageName(code) {
     const value = String(code || "").trim();
-    return LANGUAGES[value.toLowerCase()] || value || "Unknown";
+    const key = value.toLowerCase();
+    const name = LANGUAGES[LANGUAGE_ALIASES[key] || key] ||
+        Object.values(LANGUAGES).find(known => known.toLowerCase() === key);
+    if (name) return name;
+    return value ? value.charAt(0).toUpperCase() + value.slice(1) : "Unknown";
+}
+
+/** "eng", "English", "portuguese-br" -> "en", "en", "pt-BR"; "" when unknown. */
+export function languageCode(value) {
+    const name = languageName(value);
+    if (REGIONAL_CODES[name]) return REGIONAL_CODES[name];
+    return Object.keys(LANGUAGES).find(key => key.length === 2 && LANGUAGES[key] === name) || "";
 }
 
 /** Runs `fn` on every item, at most `limit` at a time; failures give `undefined`. */

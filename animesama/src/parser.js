@@ -306,7 +306,7 @@ export function detail(html, url) {
     };
 }
 
-/** Player lists of an episodes.js file, as `[[eps1 links], [eps2 links], …]`. */
+/** Player lists of a season page (or of an old episodes.js file), as `[[eps1 links], [eps2 links], …]`. */
 export function episodeLists(source) {
     const lists = [];
     for (const m of stripComments(source).matchAll(/var\s+eps(\d+)\s*=\s*\[([\s\S]*?)\]/g)) {
@@ -316,15 +316,59 @@ export function episodeLists(source) {
     return lists.sort((a, b) => a.index - b.index).map(x => x.links);
 }
 
+/**
+ * Players of a season page. Since November 2026 the page lists "lien:<id>" references instead
+ * of addresses: `token` asks /api/lien.php for them, and `meta` (id -> [host, state]) tells the
+ * videos the site knows are deleted.
+ */
+export function seasonPlayers(html) {
+    const page = String(html || "");
+    const token = /var\s+epsJeton\s*=\s*"([^"]*)"/.exec(page);
+    const meta = /var\s+epsMeta\s*=\s*(\{[\s\S]*?\});/.exec(page);
+    let parsed = {};
+    try {
+        parsed = meta ? JSON.parse(meta[1]) : {};
+    } catch (_) {
+        parsed = {};
+    }
+    return { lists: episodeLists(page), token: token ? token[1] : "", meta: parsed };
+}
+
 export function episodeCount(lists) {
     return lists.reduce((max, links) => Math.max(max, links.length), 0);
 }
 
-/** Links of episode `index` (0-based) across every player, without blanks or duplicates. */
-export function episodeLinks(lists, index) {
+/** "lien:2433" -> "2433": a link the site resolves on demand. */
+export function linkId(link) {
+    const match = /^lien:(\w+)$/.exec(String(link || "").trim());
+    return match ? match[1] : null;
+}
+
+/** Address /api/lien.php answers a link reference with, as `{ "u": "<embed url>" }`. */
+export function linkApiUrl(base, token, id) {
+    return base + "/api/lien.php?j=" + encodeURIComponent(token) + "&l=" + encodeURIComponent(id);
+}
+
+/** The site writes Vidmoly with domains that no longer answer. */
+export function fixPlayerUrl(link) {
+    return String(link || "").replace(/vidmoly\.(to|net)\b/gi, "vidmoly.biz");
+}
+
+/**
+ * Links of episode `index` (0-based) across every player, without blanks or duplicates:
+ * addresses, and "lien:<id>" references except the videos `meta` marks as deleted.
+ */
+export function episodeLinks(lists, index, meta) {
     const out = [];
     for (const links of lists) {
-        const link = (links[index] || "").replace(/vidmoly\.(to|net)\b/gi, "vidmoly.biz");
+        const raw = links[index] || "";
+        const id = linkId(raw);
+        if (id) {
+            const state = meta && meta[id] ? meta[id][1] : 0;
+            if (state !== 1 && state !== 2 && !out.includes(raw)) out.push(raw);
+            continue;
+        }
+        const link = fixPlayerUrl(raw);
         if (/^https?:\/\//i.test(link) && !out.includes(link)) out.push(link);
     }
     return out;
@@ -341,8 +385,12 @@ export function parseEpisodeUrl(url) {
     return { base: match[1], slug: match[2], folder: match[3], language: match[4], index: parseInt(match[5], 10) };
 }
 
+export function seasonPageUrl(base, slug, folder, language) {
+    return base + "/catalogue/" + slug + "/" + folder + "/" + language + "/";
+}
+
 export function episodesJsUrl(base, slug, folder, language) {
-    return base + "/catalogue/" + slug + "/" + folder + "/" + language + "/episodes.js";
+    return seasonPageUrl(base, slug, folder, language) + "episodes.js";
 }
 
 // --------------------------------------------------------------- players

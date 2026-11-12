@@ -15,11 +15,11 @@ import {
     yearOf
 } from "./src/meta.js";
 import { SOURCES, sourcesFor } from "./src/providers/index.js";
-import { USER_AGENT, parseJson } from "./src/util.js";
+import { USER_AGENT, parseJson, firstPlaylistEntry, languageName, languageCode } from "./src/util.js";
 
 (function() {
     const SOURCE_TIMEOUT_MS = 20000;
-    const PROBE_TIMEOUT_MS = 6000;
+    const PROBE_TIMEOUT_MS = 8000;
     const META_TTL_MS = 30 * 60 * 1000;
     const ANILIST_URL = "https://graphql.anilist.co";
 
@@ -213,13 +213,34 @@ import { USER_AGENT, parseJson } from "./src/util.js";
         return /\.(mp4|mkv|avi|m4v)(\?|$)/i.test(url);
     }
 
-    /** Width of the best rendition, 0 when the playlist has none, null when it does not load. */
+    function isOk(res) {
+        return Boolean(res) && res.status >= 200 && res.status < 300;
+    }
+
+    /**
+     * Width of the best rendition, 0 when the playlist has none, null when the stream does not
+     * load. Some hosts still list playlists whose segments are gone (HTTP 502): the first
+     * segment is fetched too.
+     */
     async function probePlaylist(stream) {
-        const res = await withTimeout(http.get(stream.url, Object.assign({ "User-Agent": USER_AGENT }, stream.headers)), PROBE_TIMEOUT_MS, null);
-        if (!res || res.status < 200 || res.status >= 300 || !/#EXTM3U/.test(res.body)) return null;
-        let max = 0;
-        for (const m of res.body.matchAll(/RESOLUTION\s*=\s*(\d+)x\d+/gi)) max = Math.max(max, parseInt(m[1], 10));
-        return max;
+        const headers = Object.assign({ "User-Agent": USER_AGENT }, stream.headers);
+        const get = url => http.get(url, headers);
+        return withTimeout((async () => {
+            const res = await get(stream.url);
+            if (!isOk(res) || !/#EXTM3U/.test(res.body)) return null;
+            let max = 0;
+            for (const m of res.body.matchAll(/RESOLUTION\s*=\s*(\d+)x\d+/gi)) max = Math.max(max, parseInt(m[1], 10));
+            let media = { url: stream.url, body: res.body };
+            if (/#EXT-X-STREAM-INF/.test(res.body)) {
+                const variant = firstPlaylistEntry(res.body, stream.url);
+                const variantRes = variant ? await get(variant) : null;
+                if (!isOk(variantRes) || !/#EXTM3U/.test(variantRes.body)) return null;
+                media = { url: variant, body: variantRes.body };
+            }
+            const segment = firstPlaylistEntry(media.body, media.url);
+            if (segment && !isOk(await http.get(segment, Object.assign({ "Range": "bytes=0-1023" }, headers)))) return null;
+            return max;
+        })(), PROBE_TIMEOUT_MS, null);
     }
 
     /** By width: films are wider than 16:9, so 1920×800 is a 1080p release. */
@@ -238,6 +259,15 @@ import { USER_AGENT, parseJson } from "./src/util.js";
             counts[label] = (counts[label] || 0) + 1;
             return counts[label] > 1 ? label + " #" + counts[label] : label;
         });
+    }
+
+    /** The Referer and Origin a source's streams are loaded with, if any. */
+    function siteHeaders(streams) {
+        const headers = ((streams || []).find(stream => stream.headers && stream.headers.Referer) || {}).headers;
+        if (!headers) return undefined;
+        const out = { "Referer": headers.Referer };
+        if (headers.Origin) out.Origin = headers.Origin;
+        return out;
     }
 
     const MAX_SUBTITLES = 30;
@@ -265,7 +295,17 @@ import { USER_AGENT, parseJson } from "./src/util.js";
                     .then(result => result || { streams: [], subtitles: [] })
             ));
 
-            const subtitles = oneSubtitlePerLanguage([].concat(...results.map(r => r.subtitles || [])));
+            // Every source names languages its own way: one name and code for all of them. A
+            // source's subtitles come from its own site, which may refuse them without its Referer.
+            const subtitles = oneSubtitlePerLanguage([].concat(...results.map(result =>
+                (result.subtitles || []).map(sub => {
+                    const name = languageName(sub.label || sub.lang);
+                    return Object.assign({}, sub, {
+                        label: name,
+                        lang: languageCode(sub.lang) || languageCode(name),
+                        headers: sub.headers || siteHeaders(result.streams)
+                    });
+                }))));
             const candidates = [];
             const seen = new Set();
             for (const result of results) {

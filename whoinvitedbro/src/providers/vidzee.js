@@ -38,7 +38,8 @@ export default {
         streams.sort((a, b) => a.source.localeCompare(b.source));
 
         const subtitles = (Array.isArray(subs) ? subs : []).filter(s => s && isHttp(s.file || s.url))
-            .map(s => ({ url: s.file || s.url, label: languageName(s.label || s.lang), lang: s.lang || "" }));
+            // Their host refuses requests without a Referer.
+            .map(s => ({ url: s.file || s.url, label: languageName(s.label || s.lang), lang: s.lang || "", headers: { "Referer": PLAYER + "/" } }));
         return { streams, subtitles };
     }
 };
