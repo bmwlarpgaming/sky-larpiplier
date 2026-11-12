@@ -80,8 +80,8 @@
   {
     "packageName": "com.larpstream.skystream.voiranime",
     "name": "Voiranime",
-    "version": 2,
-    "baseUrl": "https://voir-anime.to",
+    "version": 3,
+    "baseUrl": "https://voiranime.cx",
     "description": "Animes en VF et VOSTFR de Voiranime",
     "authors": [
       "larpstream"
@@ -92,11 +92,11 @@
     "categories": [
       "Anime"
     ],
-    "iconUrl": "https://www.google.com/s2/favicons?domain=voir-anime.to&sz=128",
+    "iconUrl": "https://www.google.com/s2/favicons?domain=voiranime.cx&sz=128",
     "domains": [
       {
-        "name": "voir-anime.to",
-        "url": "https://voir-anime.to"
+        "name": "voiranime.cx",
+        "url": "https://voiranime.cx"
       }
     ],
     "url": "https://raw.githubusercontent.com/bmwlarpgaming/sky-larpiplier/main/dist/com.larpstream.skystream.voiranime.sky"
