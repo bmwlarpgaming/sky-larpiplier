@@ -7,3 +7,4 @@ test/
 .env
 # skystream-cli has a local file: dependency that breaks lockfiles and npm ci
 package-lock.json
+AGENTS.md
