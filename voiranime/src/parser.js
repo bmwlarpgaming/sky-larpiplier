@@ -1,4 +1,4 @@
-// Pure parsing helpers for voir-anime.to (WordPress "Madara" theme).
+// Pure parsing helpers for Voiranime (voiranime.cx, WordPress "Madara" theme).
 // No DOM: the SkyStream JS engine only offers a limited HTML API, and the site
 // markup is regular enough for targeted regular expressions.
 
@@ -331,13 +331,22 @@ export function counterpartUrl(url, isDub) {
     return clean + "-vf/";
 }
 
-/** Players of an episode page, in the site's order. */
-export function sources(html) {
+/**
+ * A page of the site on its current domain: the site moves (voir-anime.to, voiranime.cx…) and
+ * the apps keep the addresses of saved titles and episodes.
+ */
+export function onCurrentDomain(url, base) {
+    const match = /^https?:\/\/[^/]+(\/anime\/.*)$/i.exec(String(url || ""));
+    return match ? String(base).replace(/\/+$/, "") + match[1] : url;
+}
+
+/** Players of an episode page, in the site's order; relative addresses resolve against `base`. */
+export function sources(html, base = "https://voiranime.cx/") {
     const page = html || "";
     const out = [];
     const seen = new Set();
     const add = (label, src) => {
-        const url = resolveUrl("https://voir-anime.to/", decodeEntities(src));
+        const url = resolveUrl(base, decodeEntities(src));
         if (!isHttpUrl(url) || seen.has(url)) return;
         seen.add(url);
         out.push({ label, url });

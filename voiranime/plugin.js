@@ -9,6 +9,7 @@ import {
     detail,
     counterpartUrl,
     sources,
+    onCurrentDomain,
     extractMediaUrls,
     checkedLinkType,
     highestHlsQuality,
@@ -37,7 +38,7 @@ import {
     const ANILIST_TIMEOUT_MS = 6000;
 
     function baseUrl() {
-        return String(manifest.baseUrl || "https://voir-anime.to").replace(/\/+$/, "");
+        return String(manifest.baseUrl || "https://voiranime.cx").replace(/\/+$/, "");
     }
 
     // Poster requests without a Referer are rejected with a 403.
@@ -112,7 +113,7 @@ import {
 
     // ------------------------------------------------------------- artwork
 
-    // voir-anime.to rejects image requests without its own Referer, and SkyStream
+    // Voiranime rejects image requests without its own Referer, and SkyStream
     // loads posters without the item headers. Artwork therefore comes from AniList,
     // whose CDN has no such check. Results are kept for the whole session.
     const artworkCache = new Map();
@@ -293,6 +294,7 @@ import {
     }
 
     async function load(url, cb) {
+        url = onCurrentDomain(url, baseUrl());
         try {
             // The other language page is usually the same slug with or without "-vf":
             // fetch it at the same time as the requested page.
@@ -407,13 +409,14 @@ import {
     }
 
     async function loadStreams(url, cb) {
+        url = onCurrentDomain(url, baseUrl());
         try {
             const res = await http_get(url, siteHeaders());
             if (!res || (res.status || res.statusCode) !== 200) {
                 return cb({ success: false, errorCode: "SITE_OFFLINE", message: "Épisode introuvable" });
             }
             const language = /\/anime\/[^/]+-vf\/|-vf\/?$/.test(url.split("?")[0]) ? "VF" : "VOSTFR";
-            const players = sources(res.body);
+            const players = sources(res.body, baseUrl() + "/");
             const lists = await Promise.all(players.map(source =>
                 withTimeout(loadSource(source, url, language), SOURCE_TIMEOUT_MS, [])
             ));
