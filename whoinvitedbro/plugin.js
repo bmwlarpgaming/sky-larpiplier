@@ -294,7 +294,7 @@ import { USER_AGENT, parseJson, firstPlaylistEntry, languageName, languageCode, 
     function oneSubtitlePerLanguage(subtitles) {
         const seen = new Set();
         const unique = subtitles.filter(sub => {
-            const key = String(sub.label || sub.lang || "").toLowerCase();
+            const key = String(sub.lang || sub.label || "").toLowerCase();
             if (!sub.url || seen.has(key)) return false;
             seen.add(key);
             return true;
@@ -313,14 +313,15 @@ import { USER_AGENT, parseJson, firstPlaylistEntry, languageName, languageCode, 
                     .then(result => result || { streams: [], subtitles: [] })
             ));
 
-            // Every source names languages its own way: one name and code for all of them. A
-            // source's subtitles come from its own site, which may refuse them without its Referer.
+            // Every source names languages its own way ("French", "Français", "fre"): the code, when
+            // known, names the track in English. A source's subtitles come from its own site,
+            // which may refuse them without its Referer.
             const subtitles = oneSubtitlePerLanguage([].concat(...results.map(result =>
                 (result.subtitles || []).map(sub => {
-                    const name = languageName(sub.label || sub.lang);
+                    const code = languageCode(sub.lang) || languageCode(sub.label);
                     return Object.assign({}, sub, {
-                        label: name,
-                        lang: languageCode(sub.lang) || languageCode(name),
+                        label: code ? languageName(code) : languageName(sub.label || sub.lang),
+                        lang: code,
                         headers: sub.headers || siteHeaders(result.streams)
                     });
                 }))));

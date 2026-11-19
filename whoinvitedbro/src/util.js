@@ -91,7 +91,11 @@ const LANGUAGES = {
     vie: "Vietnamese", th: "Thai", tha: "Thai", cs: "Czech", cze: "Czech", ces: "Czech", hu: "Hungarian",
     hun: "Hungarian", ro: "Romanian", rum: "Romanian", ron: "Romanian", fa: "Persian", per: "Persian",
     fas: "Persian", uk: "Ukrainian", ukr: "Ukrainian", bg: "Bulgarian", bul: "Bulgarian", hr: "Croatian",
-    hrv: "Croatian", ms: "Malay", may: "Malay", msa: "Malay"
+    hrv: "Croatian", ms: "Malay", may: "Malay", msa: "Malay", pa: "Punjabi", pan: "Punjabi", ur: "Urdu",
+    urd: "Urdu", bn: "Bengali", ben: "Bengali", tl: "Filipino", fil: "Filipino", tgl: "Filipino", et: "Estonian",
+    est: "Estonian", ta: "Tamil", tam: "Tamil", te: "Telugu", tel: "Telugu", ml: "Malayalam", mal: "Malayalam",
+    sk: "Slovak", slo: "Slovak", slk: "Slovak", sl: "Slovenian", slv: "Slovenian", sr: "Serbian", srp: "Serbian",
+    lt: "Lithuanian", lit: "Lithuanian", lv: "Latvian", lav: "Latvian", ca: "Catalan", cat: "Catalan"
 };
 
 /** Other spellings of the regional variants, as sources write them. */
