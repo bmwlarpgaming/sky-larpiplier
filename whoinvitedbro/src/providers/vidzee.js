@@ -1,10 +1,11 @@
-import { USER_AGENT, empty, parseJson, isHttp, languageName } from "../util.js";
+import { USER_AGENT, empty, parseJson, isHttp, languageName, withTimeout } from "../util.js";
 
 const API = "https://core.vidzee.wtf";
 const PLAYER = "https://player.vidzee.wtf";
 /** Servers, with their display names; "v4" has one stream per audio language. */
-const SERVERS = [["dcloud", "Dcloud"], ["doppler", "Doppler"], ["ipcloud", "IPcloud"], ["tik", "TCloud"],
-    ["v6:English", "Server English"], ["v6:Hindi", "Server Hindi"]];
+const SERVERS = [["dcloud", "Dcloud"], ["tik", "TCloud"], ["v6:English", "Server English"], ["v6:Hindi", "Server Hindi"]];
+/** Some servers hang behind a gateway error: give up on each one after this. */
+const SERVER_TIMEOUT_MS = 8000;
 
 export default {
     id: "vidzee",
@@ -16,15 +17,17 @@ export default {
         const headers = { "User-Agent": USER_AGENT, "Origin": PLAYER, "Referer": PLAYER + "/" };
 
         const [languages, subs] = await Promise.all([
-            http.get(API + "/streams/languages/" + path, headers).then(res => (parseJson(res.body) || {}).languages || []),
-            http.get(API + "/subs/" + path, headers).then(res => parseJson(res.body))
+            withTimeout(http.get(API + "/streams/languages/" + path, headers), SERVER_TIMEOUT_MS, null)
+                .then(res => (res && (parseJson(res.body) || {}).languages) || []),
+            withTimeout(http.get(API + "/subs/" + path, headers), SERVER_TIMEOUT_MS, null).then(res => res && parseJson(res.body))
         ]);
         const servers = SERVERS.concat(languages.map(lang => ["v4:" + lang, "Acme (" + lang + ")"]));
 
         const streams = [];
         await Promise.all(servers.map(async ([server, label]) => {
             // Without `e=1` the API answers in clear.
-            const json = parseJson((await http.get(API + "/streams/" + path + "?s=" + encodeURIComponent(server), headers)).body);
+            const res = await withTimeout(http.get(API + "/streams/" + path + "?s=" + encodeURIComponent(server), headers), SERVER_TIMEOUT_MS, null);
+            const json = res && parseJson(res.body);
             if (!json || !isHttp(json.url)) return;
             const extra = json.headers || {};
             const referer = extra.Referer || extra.referer || PLAYER + "/";

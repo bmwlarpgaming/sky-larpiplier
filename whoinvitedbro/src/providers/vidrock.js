@@ -1,7 +1,7 @@
 import { USER_AGENT, empty, parseJson, isHttp, qualityLabel } from "../util.js";
 import { aesGcmDecrypt, base64Bytes, hexBytes } from "../crypto.js";
 
-const BASE = "https://vidrock.ru";
+const BASE = "https://vidrock.net";
 // Key of the player's link encryption (AES-GCM, IV in front), public in its script.
 const KEY = hexBytes("7f3e9c2a8b5d1f4e6a9c3b7d2e5f8a1c4b6d9e2f5a8c1b4d7e9f2a5c8b1d4e7f");
 

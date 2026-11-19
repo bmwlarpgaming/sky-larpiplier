@@ -7,7 +7,6 @@ import vidup from "./vidup.js";
 import videasy from "./videasy.js";
 import vidzee from "./vidzee.js";
 import rivestream from "./rivestream.js";
-import vaplayer from "./vaplayer.js";
 import lmscript from "./lmscript.js";
 import framex from "./framex.js";
 import kisskh from "./kisskh.js";
@@ -16,7 +15,7 @@ import megaplay from "./megaplay.js";
 import opensubtitles from "./opensubtitles.js";
 
 export const SOURCES = [
-    bingebang, vidrock, vidfast, vidup, videasy, vidzee, rivestream, vaplayer, lmscript, framex, kisskh,
+    bingebang, vidrock, vidfast, vidup, videasy, vidzee, rivestream, lmscript, framex, kisskh,
     animex, megaplay,
     opensubtitles
 ];

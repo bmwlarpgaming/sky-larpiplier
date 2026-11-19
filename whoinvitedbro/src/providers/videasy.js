@@ -2,7 +2,7 @@ import { USER_AGENT, empty, parseJson, isHttp, qualityLabel, mapLimit, languageN
 import { decPost } from "../encdec.js";
 
 const API = "https://api.wecollege.net";
-const PLAYER = "https://player.videasy.to";
+const PLAYER = "https://vidy.st";
 /** Servers and their audio language. */
 const SERVERS = [
     ["miami", ""], ["boise", ""], ["vegas", ""], ["reno", ""], ["oakland", ""], ["seattle", ""], ["phoenix", ""],

@@ -15,7 +15,7 @@ import {
     yearOf
 } from "./src/meta.js";
 import { SOURCES, sourcesFor } from "./src/providers/index.js";
-import { USER_AGENT, parseJson, firstPlaylistEntry, languageName, languageCode } from "./src/util.js";
+import { USER_AGENT, parseJson, firstPlaylistEntry, languageName, languageCode, simplify } from "./src/util.js";
 
 (function() {
     const SOURCE_TIMEOUT_MS = 20000;
@@ -178,19 +178,37 @@ import { USER_AGENT, parseJson, firstPlaylistEntry, languageName, languageCode }
     // ------------------------------------------------------------- streams
 
     /**
-     * Later anime seasons are separate entries on AniList and MyAnimeList: find the one that
-     * aired that year, so the anime sources look up the right ids.
+     * The search result for `title`: same title first, then a TV series (the same year also has
+     * ONA spin-offs, "Sousou no Frieren: ●● no Mahou" next to Frieren), then AniList's order.
+     */
+    function pickAnime(list, title) {
+        const key = simplify(title);
+        const rank = media => {
+            const names = [media.title && media.title.english, media.title && media.title.romaji].map(simplify);
+            return (names.includes(key) ? 0 : 2) + (media.format === "TV" ? 0 : 1);
+        };
+        return list.map((media, i) => ({ media, i, r: rank(media) })).sort((a, b) => a.r - b.r || a.i - b.i).map(x => x.media)[0] || null;
+    }
+
+    /**
+     * The AniList and MyAnimeList ids the anime sources look up. Later seasons are separate
+     * entries there: find the one that aired that year. A first season keeps its own ids and
+     * only gets the missing ones.
      */
     async function resolveAnimeSeason(data) {
-        if (!data.anime || !data.season || data.season <= 1) return data;
-        const year = yearOf(data.airDate);
+        if (!data.anime || !data.season) return data;
+        const laterSeason = data.season > 1;
+        // A first season only needs the ids, which IMDb-based entries do not carry.
+        if (!laterSeason && data.mal && data.anilist) return data;
+        const year = yearOf(data.airDate) || data.year;
         if (!year) return data;
         const query = "query ($search: String, $year: Int) { Page(perPage: 5) { media(search: $search, type: ANIME, " +
-            "seasonYear: $year, format_in: [TV, ONA], sort: [SEARCH_MATCH]) { id idMal title { romaji english } } } }";
+            "seasonYear: $year, format_in: [TV, ONA], sort: [SEARCH_MATCH]) { id idMal format title { romaji english } } } }";
         const res = await http.post(ANILIST_URL, { "Content-Type": "application/json", "Accept": "application/json" },
             JSON.stringify({ query, variables: { search: data.title, year } }));
-        const media = ((((parseJson(res.body) || {}).data || {}).Page || {}).media || [])[0];
+        const media = pickAnime(((((parseJson(res.body) || {}).data || {}).Page || {}).media || []), data.title);
         if (!media) return data;
+        if (!laterSeason) return Object.assign({}, data, { anilist: data.anilist || media.id, mal: data.mal || media.idMal || null });
         return Object.assign({}, data, {
             anilist: media.id,
             mal: media.idMal || null,

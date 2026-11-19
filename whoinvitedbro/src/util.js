@@ -120,6 +120,17 @@ export function languageCode(value) {
     return Object.keys(LANGUAGES).find(key => key.length === 2 && LANGUAGES[key] === name) || "";
 }
 
+/** `promise`, or `fallback` once `ms` have passed: one slow request must not hold back a whole source. */
+export function withTimeout(promise, ms, fallback) {
+    return new Promise(resolve => {
+        const timer = setTimeout(() => resolve(fallback), ms);
+        Promise.resolve(promise).then(
+            value => { clearTimeout(timer); resolve(value); },
+            () => { clearTimeout(timer); resolve(fallback); }
+        );
+    });
+}
+
 /** Runs `fn` on every item, at most `limit` at a time; failures give `undefined`. */
 export async function mapLimit(items, limit, fn) {
     const results = new Array(items.length);

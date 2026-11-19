@@ -2,7 +2,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { USER_AGENT, empty, parseJson, isHttp, qualityLabel, simplify, languageName } from "../util.js";
 import { base64Bytes, utf8Bytes, utf8Text } from "../crypto.js";
 
-const BASE = "https://bingebang.st";
+const BASE = "https://bingebang.sx";
 const SECRET = "9e2b7c41a0f6d85b3c1e7a94f25d0b86";
 
 /**
