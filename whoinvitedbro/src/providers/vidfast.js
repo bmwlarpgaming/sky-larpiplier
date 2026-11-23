@@ -22,21 +22,22 @@ export function csrfPlayer(id, name, BASE, codec) {
         // Two handshakes give the servers and stream endpoints, each with its CSRF token.
         const stage1 = await encGet(http, "enc-" + codec, { text: token[1], stage: 1 });
         if (!stage1 || !stage1.stage1) return empty();
-        const handshake = (await http.post(stage1.stage1, Object.assign({}, headers, { "X-CSRF-Token": stage1.token }), "")).body;
-        const stage2 = handshake && await encGet(http, "enc-" + codec, { text: handshake, stage: 2 });
+        const handshakeRes = await http.post(stage1.stage1, Object.assign({}, headers, { "X-CSRF-Token": stage1.token }), "");
+        if (handshakeRes.status !== 200 || !handshakeRes.body) return empty();
+        const stage2 = await encGet(http, "enc-" + codec, { text: handshakeRes.body, stage: 2 });
         if (!stage2 || !stage2.servers) return empty();
         const apiHeaders = Object.assign({}, headers, { "X-CSRF-Token": stage2.token });
 
-        const encrypted = (await http.post(stage2.servers, apiHeaders, "")).body;
-        const servers = encrypted ? await decPost(http, "dec-" + codec, { text: encrypted }) : null;
+        const serversRes = await http.post(stage2.servers, apiHeaders, "");
+        const servers = serversRes.status === 200 && serversRes.body ? await decPost(http, "dec-" + codec, { text: serversRes.body }) : null;
         if (!Array.isArray(servers)) return empty();
 
         const streams = [];
         const subtitles = [];
         await Promise.all(servers.map(async (server, i) => {
             if (!server || !server.data) return;
-            const body = (await http.post(stage2.stream + "/" + server.data, apiHeaders, "")).body;
-            const stream = body ? await decPost(http, "dec-" + codec, { text: body }) : null;
+            const res = await http.post(stage2.stream + "/" + server.data, apiHeaders, "");
+            const stream = res.status === 200 && res.body ? await decPost(http, "dec-" + codec, { text: res.body }) : null;
             if (!stream || !isHttp(stream.url)) return;
             streams.push({ url: stream.url, source: name + " " + (server.name || "Server " + (i + 1)), quality: "", headers: { "Referer": BASE + "/", "Origin": BASE } });
             for (const track of stream.tracks || []) {

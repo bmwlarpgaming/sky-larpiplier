@@ -15,7 +15,7 @@ import {
     yearOf
 } from "./src/meta.js";
 import { SOURCES, sourcesFor } from "./src/providers/index.js";
-import { USER_AGENT, parseJson, firstPlaylistEntry, languageName, languageCode, simplify } from "./src/util.js";
+import { USER_AGENT, parseJson, firstPlaylistEntry, languageName, languageCode, simplify, origin } from "./src/util.js";
 
 (function() {
     const SOURCE_TIMEOUT_MS = 20000;
@@ -288,12 +288,38 @@ import { USER_AGENT, parseJson, firstPlaylistEntry, languageName, languageCode, 
         return out;
     }
 
+    function isSubtitleText(text) {
+        const clean = String(text || "").replace(/^\uFEFF/, "").trimStart();
+        return clean.startsWith("WEBVTT") || /\d{1,2}:\d{2}:\d{2}[,.]\d{1,3}\s*-->/.test(clean);
+    }
+
+    /** Probes one subtitle per host and returns the set of origins that serve valid WebVTT/SRT. */
+    async function workingSubtitleHosts(subtitles) {
+        const samples = new Map();
+        for (const sub of subtitles) {
+            const host = origin(sub.url);
+            if (!host) continue;
+            const current = samples.get(host);
+            if (!current || (sub.lang === "en" && current.lang !== "en")) samples.set(host, sub);
+        }
+        const ok = new Set();
+        await Promise.all([...samples.entries()].map(async ([host, sub]) => {
+            const headers = Object.assign({ "User-Agent": USER_AGENT }, sub.headers);
+            const res = await withTimeout(http.get(sub.url, headers), PROBE_TIMEOUT_MS, null);
+            if (isOk(res) && isSubtitleText(res.body)) ok.add(host);
+        }));
+        return ok;
+    }
+
     const MAX_SUBTITLES = 30;
 
-    /** One subtitle per language, English first, then in the order found; at most MAX_SUBTITLES. */
+    /** One subtitle per language (full tracks before SDH), English first; at most MAX_SUBTITLES. */
     function oneSubtitlePerLanguage(subtitles) {
+        const ordered = subtitles.map((sub, i) => ({ sub, i }))
+            .sort((a, b) => (a.sub.sdh ? 1 : 0) - (b.sub.sdh ? 1 : 0) || a.i - b.i)
+            .map(x => x.sub);
         const seen = new Set();
-        const unique = subtitles.filter(sub => {
+        const unique = ordered.filter(sub => {
             const key = String(sub.lang || sub.label || "").toLowerCase();
             if (!sub.url || seen.has(key)) return false;
             seen.add(key);
@@ -301,7 +327,12 @@ import { USER_AGENT, parseJson, firstPlaylistEntry, languageName, languageCode, 
         });
         const english = sub => /^en(g|glish)?\b/i.test(sub.label || sub.lang || "") ? 0 : 1;
         return unique.map((sub, i) => ({ sub, i })).sort((a, b) => english(a.sub) - english(b.sub) || a.i - b.i)
-            .slice(0, MAX_SUBTITLES).map(x => x.sub);
+            .slice(0, MAX_SUBTITLES).map(({ sub }) => ({
+                url: sub.url,
+                label: sub.label,
+                lang: sub.lang,
+                headers: sub.headers
+            }));
     }
 
     async function loadStreams(url, cb) {
@@ -314,17 +345,21 @@ import { USER_AGENT, parseJson, firstPlaylistEntry, languageName, languageCode, 
             ));
 
             // Every source names languages its own way ("French", "Français", "fre"): the code, when
-            // known, names the track in English. A source's subtitles come from its own site,
-            // which may refuse them without its Referer.
-            const subtitles = oneSubtitlePerLanguage([].concat(...results.map(result =>
-                (result.subtitles || []).map(sub => {
-                    const code = languageCode(sub.lang) || languageCode(sub.label);
-                    return Object.assign({}, sub, {
-                        label: code ? languageName(code) : languageName(sub.label || sub.lang),
-                        lang: code,
-                        headers: sub.headers || siteHeaders(result.streams)
-                    });
-                }))));
+            // known, names the track in English. Skip forced-only tracks so they do not shadow full
+            // subtitles. A source's subtitles come from its own site, which may refuse them without
+            // its Referer.
+            const rawSubtitles = [].concat(...results.map(result =>
+                (result.subtitles || [])
+                    .filter(sub => sub && !/\bforced\b/i.test((sub.label || "") + " " + (sub.lang || "") + " " + (sub.url || "")))
+                    .map(sub => {
+                        const code = languageCode(sub.lang) || languageCode(sub.label);
+                        return Object.assign({}, sub, {
+                            label: code ? languageName(code) : languageName(sub.label || sub.lang),
+                            lang: code,
+                            sdh: /\b(sdh|hi|cc)\b/i.test((sub.label || "") + " " + (sub.url || "")),
+                            headers: sub.headers || siteHeaders(result.streams)
+                        });
+                    })));
             const candidates = [];
             const seen = new Set();
             for (const result of results) {
@@ -335,14 +370,18 @@ import { USER_AGENT, parseJson, firstPlaylistEntry, languageName, languageCode, 
                 }
             }
 
-            // Drop playlists that do not load (expired, rate limited, or blocked by the network).
-            const checked = await Promise.all(candidates.map(async stream => {
-                if (isFile(stream.url)) return stream;
-                const width = await probePlaylist(stream);
-                if (width === null) return null;
-                if (!stream.quality && width) stream.quality = widthLabel(width);
-                return stream;
-            }));
+            // Drop playlists and subtitle hosts that do not load (expired, dead DNS, or blocked).
+            const [checked, liveSubHosts] = await Promise.all([
+                Promise.all(candidates.map(async stream => {
+                    if (isFile(stream.url)) return stream;
+                    const width = await probePlaylist(stream);
+                    if (width === null) return null;
+                    if (!stream.quality && width) stream.quality = widthLabel(width);
+                    return stream;
+                })),
+                workingSubtitleHosts(rawSubtitles)
+            ]);
+            const subtitles = oneSubtitlePerLanguage(rawSubtitles.filter(sub => liveSubHosts.has(origin(sub.url))));
 
             // Stable sort: streams flagged `last` go after every other one.
             const usable = checked.filter(Boolean).sort((a, b) => (a.last ? 1 : 0) - (b.last ? 1 : 0));

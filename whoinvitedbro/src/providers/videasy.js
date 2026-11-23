@@ -1,12 +1,13 @@
-import { USER_AGENT, empty, parseJson, isHttp, qualityLabel, mapLimit, languageName } from "../util.js";
+import { USER_AGENT, empty, parseJson, isHttp, qualityLabel, mapLimit, languageName, withTimeout } from "../util.js";
 import { decPost } from "../encdec.js";
 
 const API = "https://api.wecollege.net";
-const PLAYER = "https://vidy.st";
+const PLAYER = "https://www.vidy.st";
+const SERVER_TIMEOUT_MS = 6000;
 /** Servers and their audio language. */
 const SERVERS = [
     ["miami", ""], ["boise", ""], ["vegas", ""], ["reno", ""], ["oakland", ""], ["seattle", ""], ["phoenix", ""],
-    ["atlanta", ""], ["portland", ""], ["austin", ""], ["dallas", ""], ["tampa", ""], ["orlando", ""],
+    ["atlanta", ""], ["portland", ""], ["austin", ""],
     ["munich", "German"], ["berlin", "German"], ["paris", "French"], ["delhi", "Hindi"], ["cancun", "Spanish"]
 ];
 
@@ -31,7 +32,7 @@ export default {
 
         const streams = [];
         const subtitles = [];
-        await mapLimit(SERVERS, 6, async ([server, language]) => {
+        await mapLimit(SERVERS, 8, ([server, language]) => withTimeout((async () => {
             const extra = server === "munich" ? "&language=german" : "";
             const encrypted = (await http.get(API + "/" + server + "/sources?" + query + extra, headers)).body;
             if (!encrypted || encrypted.length < 20 || encrypted.charAt(0) === "{") return;
@@ -46,7 +47,7 @@ export default {
             for (const sub of result.subtitles || []) {
                 if (sub && isHttp(sub.url)) subtitles.push({ url: sub.url, label: languageName(sub.language || sub.lang || sub.label), lang: sub.lang || "" });
             }
-        });
+        })(), SERVER_TIMEOUT_MS, null));
         return { streams, subtitles };
     }
 };

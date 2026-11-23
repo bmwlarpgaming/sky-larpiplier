@@ -11,7 +11,7 @@ export default {
     async run(data, http) {
         if (!data.mal) return empty();
         const episode = data.type === "movie" ? 1 : data.episode;
-        const headers = { "User-Agent": USER_AGENT, "Origin": BASE, "Referer": BASE + "/" };
+        const headers = { "User-Agent": USER_AGENT, "Origin": BASE, "Referer": BASE + "/", "X-Requested-With": "XMLHttpRequest" };
         const streams = [];
         const subtitles = [];
         await Promise.all(["sub", "dub"].map(async version => {

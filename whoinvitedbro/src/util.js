@@ -95,13 +95,16 @@ const LANGUAGES = {
     urd: "Urdu", bn: "Bengali", ben: "Bengali", tl: "Filipino", fil: "Filipino", tgl: "Filipino", et: "Estonian",
     est: "Estonian", ta: "Tamil", tam: "Tamil", te: "Telugu", tel: "Telugu", ml: "Malayalam", mal: "Malayalam",
     sk: "Slovak", slo: "Slovak", slk: "Slovak", sl: "Slovenian", slv: "Slovenian", sr: "Serbian", srp: "Serbian",
-    lt: "Lithuanian", lit: "Lithuanian", lv: "Latvian", lav: "Latvian", ca: "Catalan", cat: "Catalan"
+    lt: "Lithuanian", lit: "Lithuanian", lv: "Latvian", lav: "Latvian", ca: "Catalan", cat: "Catalan",
+    sq: "Albanian", alb: "Albanian", sqi: "Albanian", bs: "Bosnian", bos: "Bosnian", is: "Icelandic",
+    ice: "Icelandic", isl: "Icelandic", mk: "Macedonian", mac: "Macedonian", mkd: "Macedonian"
 };
 
 /** Other spellings of the regional variants, as sources write them. */
 const LANGUAGE_ALIASES = {
     "pt-br": "pob", "pt_br": "pob", "portuguese-br": "pob", "portuguese (brazil)": "pob", "brazilian": "pob",
-    "es-419": "spl", "es-la": "spl", "es-mx": "spl", "spanish-latam": "spl", "spanish (latin america)": "spl", "latino": "spl"
+    "es-419": "spl", "es-la": "spl", "es-mx": "spl", "spanish-latam": "spl", "spanish (latin america)": "spl", "latino": "spl",
+    "norwegian bokmål": "no", "norwegian bokmal": "no", "norwegian bokm?l": "no", "nb": "no", "nob": "no"
 };
 
 /** BCP 47 codes of the regional variants; the others use their two-letter key. */
@@ -117,9 +120,11 @@ export function languageName(code) {
     return value ? value.charAt(0).toUpperCase() + value.slice(1) : "Unknown";
 }
 
-/** "eng", "English", "portuguese-br" -> "en", "en", "pt-BR"; "" when unknown. */
+/** "eng", "English", "Eng (SDH)", "English 2", "portuguese-br" -> "en", ..., "pt-BR"; "" when unknown. */
 export function languageCode(value) {
-    const name = languageName(value);
+    const raw = String(value || "").trim();
+    const cleaned = raw.replace(/\s*\((?:sdh|hi|cc|\d+)\)\s*$/i, "").replace(/\s+\d+$/, "").trim();
+    const name = languageName(cleaned);
     if (REGIONAL_CODES[name]) return REGIONAL_CODES[name];
     return Object.keys(LANGUAGES).find(key => key.length === 2 && LANGUAGES[key] === name) || "";
 }

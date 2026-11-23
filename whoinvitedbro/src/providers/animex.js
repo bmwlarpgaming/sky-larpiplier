@@ -36,14 +36,14 @@ export default {
         const results = await Promise.all(requests.map(async ({ type, provider }) => {
             const res = await http.get(API + "/sources?id=" + anime.id + "&epNum=" + episode + "&type=" + type + "&providerId=" + provider.id, headers);
             const json = parseJson(res.body) || {};
-            const referer = (json.headers || {}).Referer || SITE + "/";
+            const streamHeaders = Object.assign({ "Referer": SITE + "/" }, json.headers || {});
             const label = type === "dub" ? "Dub" : "Sub";
             return {
                 streams: (json.sources || []).filter(s => s && s.url).map(s => ({
                     url: s.url,
                     source: "Animex " + provider.id.charAt(0).toUpperCase() + provider.id.slice(1) + " (" + label + ")",
                     quality: qualityLabel(s.quality),
-                    headers: { "Referer": referer },
+                    headers: streamHeaders,
                     dubbed: type === "dub"
                 })),
                 subtitles: (json.tracks || []).filter(t => t && (t.url || t.file) && t.kind !== "thumbnails")

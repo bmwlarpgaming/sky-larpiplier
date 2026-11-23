@@ -1,9 +1,11 @@
-import { USER_AGENT, empty, parseJson, queryParams, qualityLabel, isHttp } from "../util.js";
+import { USER_AGENT, empty, parseJson, queryParams, qualityLabel, isHttp, withTimeout } from "../util.js";
 
 const BASE = "https://www.rivestream.app";
+const API = "https://scrapper.rivestream.app";
 /** Services listed last: their playlists only play in lenient players (Apogee's is malformed for iOS). */
 const LAST = ["apogee"];
 const KEY_WORKER = "https://rivestream.supe2372.workers.dev/";
+const SERVICE_TIMEOUT_MS = 8000;
 
 /** The key list embedded in RiveStream's app bundle: `let c = ["…", …]`. */
 export function keyList(js) {
@@ -59,20 +61,20 @@ export default {
     anime: false,
     async run(data, http, cache) {
         if (!data.tmdb) return empty();
-        const headers = { "User-Agent": USER_AGENT };
+        const headers = { "User-Agent": USER_AGENT, "Accept": "application/json", "Referer": BASE + "/" };
         const [services, key] = await Promise.all([
-            http.get(BASE + "/api/backendfetch?requestID=VideoProviderServices&secretKey=rive", headers)
-                .then(res => (parseJson(res.body) || {}).data || []),
+            withTimeout(http.get(API + "/api/providers?secretKey=rive", headers), SERVICE_TIMEOUT_MS, null)
+                .then(res => (res && (parseJson(res.body) || {}).data) || []),
             secret(http, data.tmdb, cache.rivestream || (cache.rivestream = {}))
         ]);
         if (!key) return empty();
         const lists = await Promise.all(services.map(async service => {
             const url = data.type === "movie"
-                ? BASE + "/api/backendfetch?requestID=movieVideoProvider&id=" + data.tmdb + "&service=" + service + "&secretKey=" + key
-                : BASE + "/api/backendfetch?requestID=tvVideoProvider&id=" + data.tmdb + "&season=" + data.season +
-                    "&episode=" + data.episode + "&service=" + service + "&secretKey=" + key;
-            const res = await http.get(url, headers);
-            const sources = ((parseJson(res.body) || {}).data || {}).sources || [];
+                ? API + "/api/provider?provider=" + service + "&id=" + data.tmdb + "&secretKey=" + encodeURIComponent(key)
+                : API + "/api/provider?provider=" + service + "&id=" + data.tmdb + "&season=" + data.season +
+                    "&episode=" + data.episode + "&secretKey=" + encodeURIComponent(key);
+            const res = await withTimeout(http.get(url, headers), SERVICE_TIMEOUT_MS, null);
+            const sources = (res && (parseJson(res.body) || {}).data || {}).sources || [];
             const streams = sources.map(source => toStream(source, service)).filter(Boolean);
             if (LAST.includes(service)) streams.forEach(stream => { stream.last = true; });
             return streams;

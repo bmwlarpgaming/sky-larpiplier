@@ -1,7 +1,8 @@
-import { USER_AGENT, empty, parseJson, isHttp, qualityLabel, mapLimit } from "../util.js";
+import { USER_AGENT, empty, parseJson, isHttp, qualityLabel, mapLimit, withTimeout } from "../util.js";
 
 const API = "https://api.framextv.tech/api/stream";
 const SITE = "https://framextv.tech";
+const PROVIDER_TIMEOUT_MS = 8000;
 /**
  * FrameX's providers. It has about twenty names, but each falls back to another backend when its
  * own has nothing, and they land on these few: asking the others only repeats them, slowly.
@@ -24,7 +25,8 @@ export default {
         const seen = new Set();
         const streams = [];
         await mapLimit(PROVIDERS, 4, async provider => {
-            const json = parseJson((await http.get(API + "?" + query + "&provider=" + provider, headers)).body);
+            const res = await withTimeout(http.get(API + "?" + query + "&provider=" + provider, headers), PROVIDER_TIMEOUT_MS, null);
+            const json = res && parseJson(res.body);
             if (!json || !json.success) return;
             for (const source of json.sources || []) {
                 if (!source || !isHttp(source.url) || seen.has(source.url) || source.type === "dash" || /\.mpd(\?|$)/.test(source.url)) continue;
